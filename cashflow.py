@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import io
 from datetime import datetime
-from typing import Dict, List, Tuple
+from typing import List, Tuple
 
 import pandas as pd
 
@@ -52,22 +52,14 @@ def build_cashflow_tables_for_day(client, day: datetime, prev_day: datetime) -> 
     df_today = fetch_movements_dataframe(client, day, day)
     df_prev = fetch_movements_dataframe(client, prev_day, prev_day)
 
-    df = pd.concat([df_today, df_prev], ignore_index=True)
-
-    # Pivot by account and category
-    pivot = pd.pivot_table(
-        df,
+    # Pivot for each day
+    pivot_today = pd.pivot_table(
+        df_today,
         values="amount",
         index=["accountName", "categoryName"],
         aggfunc="sum",
         fill_value=0.0,
     )
-
-    # Split tables
-    pivot_today = pivot.loc[pivot.index.get_level_values(0).isin([RU_ACCOUNT_MAIN, RU_ACCOUNT_TRADES])]
-    # Union categories (fix duplicated loan mapping)
-    categories_today = set(pivot_today.index.get_level_values(1))
-
     pivot_prev = pd.pivot_table(
         df_prev,
         values="amount",
@@ -75,7 +67,10 @@ def build_cashflow_tables_for_day(client, day: datetime, prev_day: datetime) -> 
         aggfunc="sum",
         fill_value=0.0,
     )
-    categories_prev = set(pivot_prev.index.get_level_values(1))
+
+    # Union categories across days to avoid missing mapped duplicates (e.g., Loan/Loans → Займ)
+    categories_today = set(pivot_today.index.get_level_values(1)) if not pivot_today.empty else set()
+    categories_prev = set(pivot_prev.index.get_level_values(1)) if not pivot_prev.empty else set()
     all_categories = categories_today.union(categories_prev)
 
     def _format_table(pvt: pd.DataFrame, title: str) -> str:
@@ -89,9 +84,9 @@ def build_cashflow_tables_for_day(client, day: datetime, prev_day: datetime) -> 
     text_today = _format_table(pivot_today, f"ДДС за {day.date()}")
     text_prev = _format_table(pivot_prev, f"ДДС за {prev_day.date()}")
 
-    # Excel export
+    # Excel export with two sheets
     buffer = io.BytesIO()
-    with pd.ExcelWriter(buffer, engine="xlsxwriter") as writer:
+    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
         pivot_today.reset_index().to_excel(writer, sheet_name="today", index=False)
         pivot_prev.reset_index().to_excel(writer, sheet_name="prev", index=False)
     buffer.seek(0)
@@ -130,7 +125,7 @@ def build_detailed_cashflow_for_period(client, dt_from: datetime, dt_to: datetim
     df["date"] = pd.to_datetime(df["date"], errors="coerce").dt.date
     lines: List[str] = [f"Детальный ДДС за период {dt_from.date()} — {dt_to.date()}"]
 
-    grouped = df.groupby(["date", "accountName", "categoryName"])]["amount"].sum().reset_index()
+    grouped = df.groupby(["date", "accountName", "categoryName"]) ["amount"].sum().reset_index()
     for _, row in grouped.iterrows():
         lines.append(
             f"{row['date']} | {row['accountName']} | {row['categoryName']}: {row['amount']:.2f}"

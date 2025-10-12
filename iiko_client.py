@@ -1,6 +1,8 @@
 import requests
 import logging
 from typing import Dict, Any, Optional
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 
 class IikoClient:
@@ -10,6 +12,17 @@ class IikoClient:
         self.password = password
         self.token: Optional[str] = None
         self.session = requests.Session()
+        # Настраиваем ретраи для устойчивости к сетевым ошибкам и 5xx
+        retries = Retry(
+            total=3,
+            backoff_factor=0.5,
+            status_forcelist=(500, 502, 503, 504),
+            allowed_methods=("GET", "POST"),
+            raise_on_status=False,
+        )
+        adapter = HTTPAdapter(max_retries=retries)
+        self.session.mount("http://", adapter)
+        self.session.mount("https://", adapter)
 
     def auth(self) -> str:
         url = f"{self.base_url}/resto/api/auth"
@@ -73,5 +86,29 @@ class IikoClient:
         except Exception:
             pass
         resp = self.session.post(url, json=payload, params=params, timeout=60)
+        resp.raise_for_status()
+        return resp.json()
+
+    def fetch_olap_by_preset(self, preset_id: str, date_from: str, date_to: str) -> Dict[str, Any]:
+        """
+        Запрос OLAP по сохранённому пресету (GET byPresetId).
+
+        Возвращает структуру, аналогичную POST OLAP, за указанный интервал дат.
+        """
+        token = self.ensure_token()
+        url = f"{self.base_url}/resto/api/v2/reports/olap/byPresetId/{preset_id}"
+        params = {
+            "key": token,
+            "dateFrom": date_from,
+            "dateTo": date_to,
+            # формат обычно JSON по умолчанию, но явно зададим при наличии поддержки
+            # некоторые инсталляции игнорируют параметр format для byPresetId
+            # оставляем без format, чтобы не ломать совместимость
+        }
+        try:
+            logging.info("OLAP GET byPresetId %s", url)
+        except Exception:
+            pass
+        resp = self.session.get(url, params=params, timeout=60)
         resp.raise_for_status()
         return resp.json()

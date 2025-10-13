@@ -715,7 +715,6 @@ def build_excel_cashflow_table(json_prev: Dict[str, Any], json_curr: Dict[str, A
 
     prev = _normalize_accounts(prev)
     curr = _normalize_accounts(curr)
-
     # Ensure columns exist and coerce numerics
     numeric_cols = [
         "Sum.Incoming",
@@ -847,6 +846,7 @@ def build_excel_cashflow_table(json_prev: Dict[str, Any], json_curr: Dict[str, A
         end_main_val = float(end_by_acc.get(RU_ACCOUNT_MAIN, 0) or 0)
     except Exception:
         end_main_val = 0.0
+
     add_row(
         "Общие остатки по кассам", None, None, None,
         start_trade_val, 0.0, 0.0, end_trade_val,

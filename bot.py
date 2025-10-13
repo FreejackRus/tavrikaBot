@@ -80,9 +80,11 @@ def _generate_xlsx_for_day(iso_day: str) -> str:
         d = date.today()
     date_from = d.isoformat()
     date_to = (d + timedelta(days=1)).isoformat()
-    raw = client.fetch_olap_by_preset(preset_id, date_from=date_from, date_to=date_to)
+    date_pre = (d - timedelta(days=1)).isoformat()
+    raw_previous = client.fetch_olap_by_preset(preset_id, date_from=date_pre, date_to=date_from)
+    raw_current = client.fetch_olap_by_preset(preset_id, date_from=date_from, date_to=date_to)
     out_path = f"{date_from}_ДДС.xlsx"
-    return export_excel_cashflow(raw, raw, date_from, path=out_path)
+    return export_excel_cashflow(raw_previous, raw_current, date_from, path=out_path)
 
 
 def _generate_xlsx_for_period(date_from: str, date_to: str) -> str:

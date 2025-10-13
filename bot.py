@@ -27,10 +27,10 @@ def get_env(name: str, default: Optional[str] = None) -> str:
 def _build_main_menu() -> InlineKeyboardMarkup:
     rows = [
         [
-            InlineKeyboardButton("За сегодня", callback_data="TODAY"),
-            InlineKeyboardButton("Выбрать день", callback_data="DAY"),
+            InlineKeyboardButton("📅 За сегодня", callback_data="TODAY"),
+            InlineKeyboardButton("📆 Выбрать день", callback_data="DAY"),
         ],
-        [InlineKeyboardButton("Выбрать период", callback_data="PERIOD")],
+        [InlineKeyboardButton("🗓️ Выбрать период", callback_data="PERIOD")],
     ]
     return InlineKeyboardMarkup(rows)
 

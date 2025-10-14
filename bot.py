@@ -11,7 +11,11 @@ from telegram.request import HTTPXRequest
 from telegram.ext import Application, CommandHandler, ContextTypes, CallbackQueryHandler
 
 from iiko_client import IikoClient
-from cashflow import export_excel_cashflow
+from cashflow import (
+    build_excel_cashflow_table,
+    build_full_cashflow_tree,
+    export_excel_cashflow,
+)
 # Local JSON loader no longer used in bot flow
 
 
@@ -24,18 +28,44 @@ def get_env(name: str, default: Optional[str] = None) -> str:
 
 # === Кнопочное меню и календарь ===
 
+
 def _build_main_menu() -> InlineKeyboardMarkup:
+    rows = [
+        [
+            InlineKeyboardButton("Текстовый формат", callback_data="TEXT_FORMAT"),
+        ],
+        [InlineKeyboardButton("Файловый формат", callback_data="FILE_FORMAT")],
+    ]
+    return InlineKeyboardMarkup(rows)
+
+
+def _build_text_format() -> InlineKeyboardMarkup:
+    rows = [
+        [
+            InlineKeyboardButton("📅 За сегодня", callback_data="TODAY_TEXT"),
+            InlineKeyboardButton("📆 Выбрать день", callback_data="DAY_TEXT"),
+        ],
+        [InlineKeyboardButton("🗓️ Выбрать период", callback_data="PERIOD_TEXT")],
+        [InlineKeyboardButton("Назад", callback_data="BACK_MAIN")],
+    ]
+    return InlineKeyboardMarkup(rows)
+
+
+def _build_file_format() -> InlineKeyboardMarkup:
     rows = [
         [
             InlineKeyboardButton("📅 За сегодня", callback_data="TODAY"),
             InlineKeyboardButton("📆 Выбрать день", callback_data="DAY"),
         ],
         [InlineKeyboardButton("🗓️ Выбрать период", callback_data="PERIOD")],
+        [InlineKeyboardButton("Назад", callback_data="BACK_MAIN")],
     ]
     return InlineKeyboardMarkup(rows)
 
 
-def _build_calendar(year: int | None = None, month: int | None = None, mode: str = "DAY") -> InlineKeyboardMarkup:
+def _build_calendar(
+    year: int | None = None, month: int | None = None, mode: str = "DAY"
+) -> InlineKeyboardMarkup:
     today = date.today()
     year = year or today.year
     month = month or today.month
@@ -81,10 +111,34 @@ def _generate_xlsx_for_day(iso_day: str) -> str:
     date_from = d.isoformat()
     date_to = (d + timedelta(days=1)).isoformat()
     date_pre = (d - timedelta(days=1)).isoformat()
-    raw_previous = client.fetch_olap_by_preset(preset_id, date_from=date_pre, date_to=date_from)
-    raw_current = client.fetch_olap_by_preset(preset_id, date_from=date_from, date_to=date_to)
+    raw_previous = client.fetch_olap_by_preset(
+        preset_id, date_from=date_pre, date_to=date_from
+    )
+    raw_current = client.fetch_olap_by_preset(
+        preset_id, date_from=date_from, date_to=date_to
+    )
     out_path = f"{date_from}_ДДС.xlsx"
     return export_excel_cashflow(raw_previous, raw_current, date_from, path=out_path)
+
+
+def _generate_text_info_for_day(iso_day: str) -> str:
+    client = _start_iiko_client()
+    preset_id = get_env("IIKO_OLAP_PRESET_ID")
+    try:
+        d = date.fromisoformat(iso_day)
+    except Exception:
+        d = date.today()
+    date_from = d.isoformat()
+    date_to = (d + timedelta(days=1)).isoformat()
+    date_pre = (d - timedelta(days=1)).isoformat()
+    raw_previous = client.fetch_olap_by_preset(
+        preset_id, date_from=date_pre, date_to=date_from
+    )
+    raw_current = client.fetch_olap_by_preset(
+        preset_id, date_from=date_from, date_to=date_to
+    )
+    table = build_excel_cashflow_table(raw_previous, raw_current)
+    return build_full_cashflow_tree(table, date_str=date_from)
 
 
 def _generate_xlsx_for_period(date_from: str, date_to: str) -> str:
@@ -107,8 +161,12 @@ def _generate_xlsx_for_period(date_from: str, date_to: str) -> str:
         date_pre = dpre_dt.isoformat()
         date_from = dfrom_dt.isoformat()
         date_to = dto_dt.isoformat()
-    raw_previous = client.fetch_olap_by_preset(preset_id, date_from=date_pre, date_to=date_from)
-    raw_current = client.fetch_olap_by_preset(preset_id, date_from=date_from, date_to=date_to)
+    raw_previous = client.fetch_olap_by_preset(
+        preset_id, date_from=date_pre, date_to=date_from
+    )
+    raw_current = client.fetch_olap_by_preset(
+        preset_id, date_from=date_from, date_to=date_to
+    )
     out_path = f"{date_from}_ДДС.xlsx"
     return export_excel_cashflow(raw_previous, raw_current, date_from, path=out_path)
 
@@ -121,6 +179,27 @@ async def _on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         await q.answer()
     except Exception:
         pass
+    if data == "TEXT_FORMAT":
+        try:
+            await q.message.delete()
+            await q.message.reply_text(
+                "Выберите в какой период хотите получить информацию",
+                reply_markup=_build_text_format(),
+            )
+        except Exception:
+            pass
+        return
+
+    if data == "FILE_FORMAT":
+        try:
+            await q.message.delete()
+            await q.message.reply_text(
+                "Выберите в какой период хотите получить документ",
+                reply_markup=_build_file_format(),
+            )
+        except Exception:
+            pass
+        return
 
     if data == "TODAY":
         # Только XLSX, без текстовых сообщений
@@ -133,6 +212,20 @@ async def _on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             pass
         return
 
+    if data == "TODAY_TEXT":
+        # Только XLSX, без текстовых сообщений
+        iso = date.today().isoformat()
+        text_info = await asyncio.to_thread(_generate_text_info_for_day, iso)
+        try:
+            await q.message.reply_text(text_info)
+            await q.message.reply_text(
+                "Выберите в какой период хотите получить информацию",
+                reply_markup=_build_main_menu(),
+            )
+        except Exception:
+            pass
+        return
+
     if data == "DAY":
         try:
             await q.edit_message_reply_markup(reply_markup=_build_calendar(mode="DAY"))
@@ -140,10 +233,21 @@ async def _on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             pass
         return
 
+    if data == "DAY_TEXT":
+        try:
+            await q.edit_message_reply_markup(
+                reply_markup=_build_calendar(mode="DAY_TEXT")
+            )
+        except Exception:
+            pass
+        return
+
     if data == "PERIOD":
         context.user_data["period_state"] = "from"
         try:
-            await q.edit_message_reply_markup(reply_markup=_build_calendar(mode="PERIOD_FROM"))
+            await q.edit_message_reply_markup(
+                reply_markup=_build_calendar(mode="PERIOD_FROM")
+            )
         except Exception:
             pass
         return
@@ -171,7 +275,9 @@ async def _on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             else:
                 target = (base + timedelta(days=32)).replace(day=1)
             try:
-                await q.edit_message_reply_markup(reply_markup=_build_calendar(target.year, target.month, mode=mode))
+                await q.edit_message_reply_markup(
+                    reply_markup=_build_calendar(target.year, target.month, mode=mode)
+                )
             except Exception:
                 pass
             return
@@ -180,9 +286,22 @@ async def _on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             iso_day = parts[2] if len(parts) > 2 else date.today().isoformat()
             if mode == "DAY":
                 path = await asyncio.to_thread(_generate_xlsx_for_day, iso_day)
-                await safe_reply_document(q.message, path, caption=f"Отчёт ДДС — {iso_day}")
+                await safe_reply_document(
+                    q.message, path, caption=f"Отчёт ДДС — {iso_day}"
+                )
                 try:
                     await q.edit_message_reply_markup(reply_markup=_build_main_menu())
+                except Exception:
+                    pass
+                return
+            if mode == "DAY_TEXT":
+                text_info = await asyncio.to_thread(_generate_text_info_for_day, iso_day)
+                try:
+                    await q.message.reply_text(text_info)
+                    await q.message.reply_text(
+                        "Выберите в какой период хотите получить информацию",
+                        reply_markup=_build_main_menu(),
+                    )
                 except Exception:
                     pass
                 return
@@ -194,7 +313,9 @@ async def _on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                 except Exception:
                     d = date.today()
                 try:
-                    await q.edit_message_reply_markup(reply_markup=_build_calendar(d.year, d.month, mode="PERIOD_TO"))
+                    await q.edit_message_reply_markup(
+                        reply_markup=_build_calendar(d.year, d.month, mode="PERIOD_TO")
+                    )
                 except Exception:
                     pass
                 context.user_data["period_state"] = "to"
@@ -205,10 +326,18 @@ async def _on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                 if not period_from:
                     # если начало отсутствует — считаем одиночным днём
                     path = await asyncio.to_thread(_generate_xlsx_for_day, period_to)
-                    await safe_reply_document(q.message, path, caption=f"Отчёт ДДС — {period_to}")
+                    await safe_reply_document(
+                        q.message, path, caption=f"Отчёт ДДС — {period_to}"
+                    )
                 else:
-                    path = await asyncio.to_thread(_generate_xlsx_for_period, period_from, period_to)
-                    await safe_reply_document(q.message, path, caption=f"Отчёт ДДС — период {period_from} — {period_to}")
+                    path = await asyncio.to_thread(
+                        _generate_xlsx_for_period, period_from, period_to
+                    )
+                    await safe_reply_document(
+                        q.message,
+                        path,
+                        caption=f"Отчёт ДДС — период {period_from} — {period_to}",
+                    )
                 # Сброс состояния и возврат в главное меню
                 context.user_data.pop("period_from", None)
                 context.user_data.pop("period_state", None)
@@ -218,8 +347,7 @@ async def _on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                     pass
                 return
 
-
-# Устаревшая команда /cashflow удалена: используйте кнопки в /start
+    # Устаревшая команда /cashflow удалена: используйте кнопки в /start
 
     # Старый блок генерации текстовых сообщений отчёта удалён; неизвестные колбэки игнорируем.
     return
@@ -235,11 +363,20 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 # Безопасная отправка документов (XLSX) с повтором при таймауте
 
 
-async def safe_reply_document(message, file_path: str, caption: str | None = None, retries: int = 2, delay_base: float = 2.0) -> None:
+async def safe_reply_document(
+    message,
+    file_path: str,
+    caption: str | None = None,
+    retries: int = 2,
+    delay_base: float = 2.0,
+) -> None:
     for attempt in range(retries + 1):
         try:
             with open(file_path, "rb") as f:
-                await message.reply_document(document=InputFile(f, filename=os.path.basename(file_path)), caption=caption)
+                await message.reply_document(
+                    document=InputFile(f, filename=os.path.basename(file_path)),
+                    caption=caption,
+                )
             return
         except TimedOut:
             if attempt < retries:

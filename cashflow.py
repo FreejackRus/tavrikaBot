@@ -1093,3 +1093,75 @@ def export_excel_cashflow(json_prev: Dict[str, Any], json_curr: Dict[str, Any], 
         alt_path = f"{root}_{ts}{ext}"
         wb.save(alt_path)
         return alt_path
+
+
+
+def build_full_cashflow_tree(table: pd.DataFrame, date_str: str) -> str:
+    """
+    Преобразует cashflow table в текстовое дерево с ├── / └── и возвращает как строку.
+    """
+    cash_names = ["Главная касса", "Торговые кассы"]
+    cash_columns = {
+        "Главная касса": ["E", "G", "H", "I"],
+        "Торговые кассы": ["J", "L", "M", "N"],
+        "Итого": ["O", "P", "Q", "R"]
+    }
+
+    lines = []
+
+    # Рекурсивная функция для обхода dict и генерации текста
+    def tree_to_text(node: dict, prefix: str = "") -> list[str]:
+        text_lines = []
+
+        if "Итого" in node:
+            keys = ["Итого"]
+        else:
+            keys = list(node.keys())
+
+        for i, key in enumerate(keys):
+            is_last = (i == len(keys) - 1)
+            pointer = "└──" if is_last else "├──"
+            val = node[key]
+            if isinstance(val, dict):
+                text_lines.append(f"{prefix}{pointer} {key}")
+                child_prefix = prefix + ("    " if is_last else "│   ")
+                text_lines.extend(tree_to_text(val, child_prefix))
+            else:
+                text_lines.append(f"{prefix}{pointer} {key}: {val:,.2f}")
+        return text_lines
+
+    # Строим дерево для каждой кассы
+    def build_tree_for_cash(cash_name: str) -> dict:
+        tree = {}
+        for _, row in table.iterrows():
+            type_label = row.get("Тип статьи ДДС", "").strip()
+            l1 = row.get("Статья ДДС 1-го уровня", "").strip()
+            l2 = row.get("Статья ДДС 2-го уровня", "").strip()
+            l3 = row.get("Статья ДДС 3-го уровня", "").strip()
+
+            node_lvl = tree
+            if type_label:
+                node_lvl = node_lvl.setdefault(type_label, {})
+            if l1:
+                node_lvl = node_lvl.setdefault(l1, {})
+            if l2:
+                node_lvl = node_lvl.setdefault(l2, {})
+            if l3:
+                node_lvl = node_lvl.setdefault(l3, {})
+
+            for col_name, label in zip(cash_columns[cash_name],
+                                       ["Начальный денежный остаток, р.",
+                                        "Сумма прихода, р.",
+                                        "Сумма расхода, р.",
+                                        "Конечный денежный остаток, р."]):
+                node_lvl[label] = row.get(col_name, 0.0)
+        return tree
+
+    # Собираем строки
+    lines.append(f"Дата: {date_str}")
+    for cash_name in cash_names:
+        lines.append(cash_name)
+        cash_tree = build_tree_for_cash(cash_name)
+        lines.extend(tree_to_text(cash_tree, prefix="    "))
+
+    return "\n".join(lines)

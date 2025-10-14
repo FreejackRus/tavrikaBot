@@ -45,7 +45,7 @@ def _build_text_format() -> InlineKeyboardMarkup:
             InlineKeyboardButton("📅 За сегодня", callback_data="TODAY_TEXT"),
             InlineKeyboardButton("📆 Выбрать день", callback_data="DAY_TEXT"),
         ],
-        [InlineKeyboardButton("🗓️ Выбрать период", callback_data="PERIOD_TEXT")],
+        # [InlineKeyboardButton("🗓️ Выбрать период", callback_data="PERIOD_TEXT")],
         [InlineKeyboardButton("Назад", callback_data="BACK_MAIN")],
     ]
     return InlineKeyboardMarkup(rows)
@@ -57,7 +57,7 @@ def _build_file_format() -> InlineKeyboardMarkup:
             InlineKeyboardButton("📅 За сегодня", callback_data="TODAY"),
             InlineKeyboardButton("📆 Выбрать день", callback_data="DAY"),
         ],
-        [InlineKeyboardButton("🗓️ Выбрать период", callback_data="PERIOD")],
+        # [InlineKeyboardButton("🗓️ Выбрать период", callback_data="PERIOD")],
         [InlineKeyboardButton("Назад", callback_data="BACK_MAIN")],
     ]
     return InlineKeyboardMarkup(rows)
@@ -150,24 +150,28 @@ def _generate_xlsx_for_period(date_from: str, date_to: str) -> str:
         if dfrom_dt >= dto_dt:
             dto_dt = dfrom_dt + timedelta(days=1)
         dpre_dt = dfrom_dt - timedelta(days=1)
+        dto_predt = dto_dt - timedelta(days=1)
         date_from = dfrom_dt.isoformat()
         date_to = dto_dt.isoformat()
         date_pre = dpre_dt.isoformat()
+        date_to_pre = dto_predt.isoformat()
     except Exception:
         # Фоллбэк: сегодня и завтра
         dfrom_dt = date.today()
         dpre_dt = dfrom_dt - timedelta(days=1)
         dto_dt = dfrom_dt + timedelta(days=1)
+        dto_predt = dto_dt - timedelta(days=1)
         date_pre = dpre_dt.isoformat()
         date_from = dfrom_dt.isoformat()
         date_to = dto_dt.isoformat()
+        date_to_pre = dto_predt.isoformat()
     raw_previous = client.fetch_olap_by_preset(
         preset_id, date_from=date_pre, date_to=date_from
     )
     raw_current = client.fetch_olap_by_preset(
-        preset_id, date_from=date_from, date_to=date_to
+        preset_id, date_from=date_to_pre, date_to=date_to
     )
-    out_path = f"{date_from}_ДДС.xlsx"
+    out_path = f"{date_from}-{date_to}_ДДС.xlsx"
     return export_excel_cashflow(raw_previous, raw_current, date_from, path=out_path)
 
 

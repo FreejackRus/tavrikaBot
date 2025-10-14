@@ -220,6 +220,7 @@ async def _on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             pass
         return
 
+
     if data == "TODAY_TEXT":
         # Только XLSX, без текстовых сообщений
         iso = date.today().isoformat()

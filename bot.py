@@ -34,7 +34,7 @@ def _build_main_menu() -> InlineKeyboardMarkup:
         [
             InlineKeyboardButton("Текстовый формат", callback_data="TEXT_FORMAT"),
         ],
-        [InlineKeyboardButton("Файловый формат", callback_data="FILE_FORMAT")],
+        # [InlineKeyboardButton("Файловый формат", callback_data="FILE_FORMAT")],
     ]
     return InlineKeyboardMarkup(rows)
 

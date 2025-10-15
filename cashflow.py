@@ -1120,14 +1120,19 @@ def build_full_cashflow_tree(table: pd.DataFrame, date_str: str) -> str:
 
         for i, key in enumerate(keys):
             is_last = (i == len(keys) - 1)
-            pointer = "└──" if is_last else "├──"
-            val = node[key]
-            if isinstance(val, dict):
-                text_lines.append(f"{prefix}{pointer} {key}")
-                child_prefix = prefix + ("    " if is_last else "│   ")
-                text_lines.extend(tree_to_text(val, child_prefix))
-            else:
-                text_lines.append(f"{prefix}{pointer} {key}: {val:,.2f}")
+            if is_last :
+                pointer = "└──" if is_last else "├──"
+                val = node[key]
+
+                if key == "Итого" and isinstance(val, dict):
+                    text_lines.extend(tree_to_text(val, prefix))
+                    continue
+                if isinstance(val, dict):
+                    text_lines.append(f"{prefix}{pointer} {key}")
+                    child_prefix = prefix + ("    " if is_last else "│   ")
+                    text_lines.extend(tree_to_text(val, child_prefix))
+                else:
+                    text_lines.append(f"{prefix}{pointer} {key}: {val:,.2f}")
         return text_lines
 
     # Строим дерево для каждой кассы

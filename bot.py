@@ -18,7 +18,6 @@ from cashflow import (
 )
 # Local JSON loader no longer used in bot flow
 
-
 def get_env(name: str, default: Optional[str] = None) -> str:
     val = os.getenv(name, default)
     if val is None:
@@ -213,7 +212,7 @@ async def _on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         await safe_reply_document(q.message, path, caption=f"Отчёт ДДС — {iso}")
         try:
             await q.message.reply_text(
-                "Выберите режим получения отчёта:",
+                "Выберите в какой период хотите получить информацию",
                 reply_markup=_build_text_format(),
             )
         except Exception:
@@ -228,7 +227,7 @@ async def _on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         try:
             await q.message.reply_text(text_info)
             await q.message.reply_text(
-                "Выберите режим получения отчёта:",
+                "Выберите в какой период хотите получить информацию",
                 reply_markup=_build_text_format(),
             )
         except Exception:
@@ -263,7 +262,7 @@ async def _on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     if data == "BACK_MAIN":
         try:
-            await q.edit_message_text("Выберите режим получения отчёта:")
+            await q.edit_message_text("Выберите в какой период хотите получить информацию")
             await q.edit_message_reply_markup(reply_markup=_build_text_format())
         except Exception:
             pass
@@ -300,7 +299,7 @@ async def _on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                     q.message, path, caption=f"Отчёт ДДС — {iso_day}"
                 )
                 try:
-                    await q.message.reply_text("Выберите режим получения отчёта:",reply_markup=_build_text_format())
+                    await q.message.reply_text("Выберите в какой период хотите получить информацию",reply_markup=_build_text_format())
                 except Exception:
                     pass
                 return
@@ -309,7 +308,7 @@ async def _on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                 try:
                     await q.message.reply_text(text_info)
                     await q.message.reply_text(
-                        "Выберите режим получения отчёта:",
+                        "Выберите в какой период хотите получить информацию",
                         reply_markup=_build_text_format(),
                     )
                 except Exception:
@@ -365,7 +364,7 @@ async def _on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(
-        "Выберите режим получения отчёта:",
+        "Выберите в какой период хотите получить информацию",
         reply_markup=_build_text_format(),
     )
 

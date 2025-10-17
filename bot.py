@@ -29,14 +29,14 @@ def get_env(name: str, default: Optional[str] = None) -> str:
 # === Кнопочное меню и календарь ===
 
 
-def _build_main_menu() -> InlineKeyboardMarkup:
-    rows = [
-        [
-            InlineKeyboardButton("Текстовый формат", callback_data="TEXT_FORMAT"),
-        ],
-        # [InlineKeyboardButton("Файловый формат", callback_data="FILE_FORMAT")],
-    ]
-    return InlineKeyboardMarkup(rows)
+# def _build_main_menu() -> InlineKeyboardMarkup:
+#     rows = [
+#         [
+#             InlineKeyboardButton("Текстовый формат", callback_data="TEXT_FORMAT"),
+#         ],
+#         # [InlineKeyboardButton("Файловый формат", callback_data="FILE_FORMAT")],
+#     ]
+#     return InlineKeyboardMarkup(rows)
 
 
 def _build_text_format() -> InlineKeyboardMarkup:
@@ -46,7 +46,7 @@ def _build_text_format() -> InlineKeyboardMarkup:
             InlineKeyboardButton("📆 Выбрать день", callback_data="DAY_TEXT"),
         ],
         # [InlineKeyboardButton("🗓️ Выбрать период", callback_data="PERIOD_TEXT")],
-        [InlineKeyboardButton("Назад", callback_data="BACK_MAIN")],
+        # [InlineKeyboardButton("Назад", callback_data="BACK_MAIN")],
     ]
     return InlineKeyboardMarkup(rows)
 
@@ -214,7 +214,7 @@ async def _on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         try:
             await q.message.reply_text(
                 "Выберите режим получения отчёта:",
-                reply_markup=_build_main_menu(),
+                reply_markup=_build_text_format(),
             )
         except Exception:
             pass
@@ -229,7 +229,7 @@ async def _on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             await q.message.reply_text(text_info)
             await q.message.reply_text(
                 "Выберите режим получения отчёта:",
-                reply_markup=_build_main_menu(),
+                reply_markup=_build_text_format(),
             )
         except Exception:
             pass
@@ -264,7 +264,7 @@ async def _on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     if data == "BACK_MAIN":
         try:
             await q.edit_message_text("Выберите режим получения отчёта:")
-            await q.edit_message_reply_markup(reply_markup=_build_main_menu())
+            await q.edit_message_reply_markup(reply_markup=_build_text_format())
         except Exception:
             pass
         return
@@ -300,7 +300,7 @@ async def _on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                     q.message, path, caption=f"Отчёт ДДС — {iso_day}"
                 )
                 try:
-                    await q.message.reply_text("Выберите режим получения отчёта:",reply_markup=_build_main_menu())
+                    await q.message.reply_text("Выберите режим получения отчёта:",reply_markup=_build_text_format())
                 except Exception:
                     pass
                 return
@@ -310,7 +310,7 @@ async def _on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                     await q.message.reply_text(text_info)
                     await q.message.reply_text(
                         "Выберите режим получения отчёта:",
-                        reply_markup=_build_main_menu(),
+                        reply_markup=_build_text_format(),
                     )
                 except Exception:
                     pass
@@ -352,7 +352,7 @@ async def _on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                 context.user_data.pop("period_from", None)
                 context.user_data.pop("period_state", None)
                 try:
-                    await q.edit_message_reply_markup(reply_markup=_build_main_menu())
+                    await q.edit_message_reply_markup(reply_markup=_build_text_format())
                 except Exception:
                     pass
                 return
@@ -366,7 +366,7 @@ async def _on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(
         "Выберите режим получения отчёта:",
-        reply_markup=_build_main_menu(),
+        reply_markup=_build_text_format(),
     )
 
 
